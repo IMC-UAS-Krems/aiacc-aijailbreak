@@ -60,7 +60,7 @@ There is no leaderboard, live attack feed, event broker, achievement system, or 
 | Question | Current position |
 |---|---|
 | Backend framework | Python confirmed; FastAPI proposed. |
-| Frontend | React with TypeScript and Vite is proposed for the web interface. |
+| Frontend | React with TypeScript and Vite is proposed for the web interface. Mantine for UI Library and because it works well with Vite.|
 | Player identity | Full accounts or anonymous sessions: still open. |
 | AI models | Primary model, fallback model, guard model, and local versus hosted inference: open. |
 | Resources | Budget, deadline, team skills, and supported player count: to be filled in. |
@@ -85,74 +85,66 @@ UC1 and UC2 require an identified player session and an available level. UC3 and
 
 ## 3 Architecture and UML models
 
-The following diagrams are editable PlantUML source. They can be rendered with a PlantUML-compatible tool.
+The following diagrams are editable Mermaid source. The use-case and component models use flowchart notation to preserve their actors, components, and relationships; the interaction models use sequence diagrams.
 
 ### 3.1 Use-case model
 
 The player uses the game. A team member configures levels through files and checks monitoring results; this does not require an admin web interface.
 
-```plantuml
-@startuml
-left to right direction
-actor Player
-actor "Team member" as Maintainer
-rectangle "Robin Hoodie" {
-  usecase "Select available level" as Select
-  usecase "Chat with AI" as Chat
-  usecase "Submit password" as Submit
-  usecase "View result and progress" as Progress
-  usecase "Configure levels" as Config
-  usecase "View service and carbon metrics" as Metrics
-}
-Player -- Select
-Player -- Chat
-Player -- Submit
-Player -- Progress
-Maintainer -- Config
-Maintainer -- Metrics
-@enduml
+```mermaid
+flowchart LR
+    Player["Player"]
+    Maintainer["Team member"]
+    subgraph System["Robin Hoodie"]
+        Select(["Select available level"])
+        Chat(["Chat with AI"])
+        Submit(["Submit password"])
+        Progress(["View result and progress"])
+        Config(["Configure levels"])
+        Metrics(["View service and carbon metrics"])
+    end
+    Player --- Select
+    Player --- Chat
+    Player --- Submit
+    Player --- Progress
+    Maintainer --- Config
+    Maintainer --- Metrics
 ```
 
 ### 3.2 Component model
 
 The Game API handles game rules, password validation, output checks, and progress. These are internal parts of the backend, not separate services. The Guard and LLM services separate AI-specific work from the game logic.
 
-```plantuml
-@startuml
-left to right direction
-actor Player
-component "Web frontend" as UI
-package "Application services" {
-  component "Game API\nPython" as API
-  component "Guard service" as Guard
-  component "LLM service" as LLM
-  component "Carbon service" as Carbon
-  component "Optional evaluation job" as Job
-}
-database "Postgres" as DB
-component "Primary / fallback model\nLocal or hosted" as Models
-component "Carbon intensity source\nLive or simulated" as Source
-component "Monitoring\nMetrics, logs, traces" as Monitor
-Player --> UI
-UI --> API : game requests
-API --> Guard : levels 4 and 5 only
-API --> LLM : generation request
-API --> DB : attempts and progress
-LLM --> Models : inference
-Carbon --> Source : read intensity
-Job --> Carbon : check before running
-API ..> Monitor : telemetry
-Guard ..> Monitor : telemetry
-LLM ..> Monitor : telemetry
-Carbon ..> Monitor : telemetry
-Job ..> Monitor : job status
-note bottom of API
-Internal functions:
-password validation,
-output filtering,
-leak detection
-end note
-@enduml
+```mermaid
+flowchart LR
+    Player["Player"]
+    UI["Web frontend"]
+    subgraph Services["Application services"]
+        API["Game API<br/>Python"]
+        Guard["Guard service"]
+        LLM["LLM service"]
+        Carbon["Carbon service"]
+        Job["Optional evaluation job"]
+    end
+    DB[("Postgres")]
+    Models["Primary / fallback model<br/>Local or hosted"]
+    Source["Carbon intensity source<br/>Live or simulated"]
+    Monitor["Monitoring<br/>Metrics, logs, traces"]
+    Player --> UI
+    UI -->|game requests| API
+    API -->|levels 4 and 5 only| Guard
+    API -->|generation request| LLM
+    API -->|attempts and progress| DB
+    LLM -->|inference| Models
+    Carbon -->|read intensity| Source
+    Job -->|check before running| Carbon
+    API -. telemetry .-> Monitor
+    Guard -. telemetry .-> Monitor
+    LLM -. telemetry .-> Monitor
+    Carbon -. telemetry .-> Monitor
+    Job -. job status .-> Monitor
+    Internal["Internal functions:<br/>password validation,<br/>output filtering,<br/>leak detection"]
+    API -.- Internal
 ```
 
 The application services will run in containers on Kubernetes. The optional evaluation can be a scheduled job rather than a permanent service. Model hosting and the monitoring tools are still to be selected; Prometheus and Grafana are candidates.
@@ -161,97 +153,94 @@ The application services will run in containers on Kubernetes. The optional eval
 
 This covers both unguarded and guarded levels. Replies are checked before being sent to the browser on levels with an output filter.
 
-```plantuml
-@startuml
-actor Player
-participant Frontend as UI
-participant "Game API" as API
-participant "Guard service" as Guard
-participant "LLM service" as LLM
-database Postgres as DB
-Player -> UI : Enter prompt
-UI -> API : Submit prompt and level
-API -> API : Check session, level access, and rate limit
-opt Level 4 or 5
-  API -> Guard : Check prompt
-  Guard --> API : Allow, block, or failure
-end
-alt Guard blocks or fails
-  API -> DB : Record outcome if database available
-  API --> UI : Blocked result or service error
-else No guard required or guard allows
-  API -> LLM : Generate reply using level context
-  LLM --> API : Reply or error
-  alt Model reply received
-    API -> API : Detect leaks for monitoring
-    opt Level 3 or 5
-      API -> API : Apply output filter
+```mermaid
+sequenceDiagram
+    actor Player
+    participant UI as Frontend
+    participant API as Game API
+    participant Guard as Guard service
+    participant LLM as LLM service
+    participant DB as Postgres
+    Player->>UI: Enter prompt
+    UI->>API: Submit prompt and level
+    API->>API: Check session, level access, and rate limit
+    opt Level 4 or 5
+      API->>Guard: Check prompt
+      Guard-->>API: Allow, block, or failure
     end
-    API -> DB : Save attempt and measurements
-    DB --> API : Saved
-    API --> UI : Reply or filtered-response notice
-  else Model unavailable
-    API -> DB : Record failure if database available
-    API --> UI : Service error
-  end
-end
-UI --> Player : Show outcome
-note over API, DB : A leak does not complete the level.
-@enduml
+    alt Guard blocks or fails
+      API->>DB: Record outcome if database available
+      API-->>UI: Blocked result or service error
+    else No guard required or guard allows
+      API->>LLM: Generate reply using level context
+      LLM-->>API: Reply or error
+      alt Model reply received
+        API->>API: Detect leaks for monitoring
+        opt Level 3 or 5
+          API->>API: Apply output filter
+        end
+        API->>DB: Save attempt and measurements
+        DB-->>API: Saved
+        API-->>UI: Reply or filtered-response notice
+      else Model unavailable
+        API->>DB: Record failure if database available
+        API-->>UI: Service error
+      end
+    end
+    UI-->>Player: Show outcome
+    Note over API, DB: A leak does not complete the level.
 ```
 
 ### 3.4 Sequence model for password validation
 
-```plantuml
-@startuml
-actor Player
-participant Frontend as UI
-participant "Game API" as API
-database Postgres as DB
-Player -> UI : Enter recovered password
-UI -> API : Submit password and level
-API -> API : Check session, access, and guess limit
-API -> API : Compare with expected password
-alt Incorrect password
-  API -> DB : Record unsuccessful guess
-  API --> UI : Incorrect result
-else Correct password
-  API -> DB : Save completion and next unlock together
-  alt Save succeeds
-    DB --> API : Progress saved
-    API --> UI : Success and updated progress
-  else Save fails
-    DB --> API : Error
-    API --> UI : Error; completion not confirmed
-  end
-end
-UI --> Player : Show result screen
-@enduml
+```mermaid
+sequenceDiagram
+    actor Player
+    participant UI as Frontend
+    participant API as Game API
+    participant DB as Postgres
+    Player->>UI: Enter recovered password
+    UI->>API: Submit password and level
+    API->>API: Check session, access, and guess limit
+    API->>API: Compare with expected password
+    alt Incorrect password
+      API->>DB: Record unsuccessful guess
+      API-->>UI: Incorrect result
+    else Correct password
+      API->>DB: Save completion and next unlock together
+      alt Save succeeds
+        DB-->>API: Progress saved
+        API-->>UI: Success and updated progress
+      else Save fails
+        DB-->>API: Error
+        API-->>UI: Error#59; completion not confirmed
+      end
+    end
+    UI-->>Player: Show result screen
 ```
 
 On the final level, successful validation completes the game. Repeated correct submissions must not create duplicate progress changes.
 
 ### 3.5 Sequence model for model fallback
 
-```plantuml
-@startuml
-participant "Game API" as API
-participant "LLM service" as LLM
-participant "Primary model" as Primary
-participant "Fallback model" as Fallback
-API -> LLM : Request reply
-LLM -> Primary : Send level instructions and conversation
-alt Primary responds
-  Primary --> LLM : Reply
-else Primary fails or times out
-  opt Approved fallback is available within request time limit
-    LLM -> Fallback : Send same level instructions and conversation
-    Fallback --> LLM : Reply or failure
-  end
-end
-LLM --> API : Reply with model identity, or controlled error
-note over API, LLM : Replies still pass through the level's output checks.
-@enduml
+```mermaid
+sequenceDiagram
+    participant API as Game API
+    participant LLM as LLM service
+    participant Primary as Primary model
+    participant Fallback as Fallback model
+    API->>LLM: Request reply
+    LLM->>Primary: Send level instructions and conversation
+    alt Primary responds
+      Primary-->>LLM: Reply
+    else Primary fails or times out
+      opt Approved fallback is available within request time limit
+        LLM->>Fallback: Send same level instructions and conversation
+        Fallback-->>LLM: Reply or failure
+      end
+    end
+    LLM-->>API: Reply with model identity, or controlled error
+    Note over API, LLM: Replies still pass through the level's output checks.
 ```
 
 We will test the fallback because it may change difficulty. A safety refusal is not a reason to switch models. If there is no suitable fallback, the application shows an error.
@@ -260,24 +249,23 @@ We will test the fallback because it may change difficulty. A safety refusal is 
 
 Our proposed first action is to delay optional background evaluations when carbon intensity is high. Gameplay and required CI checks are not delayed.
 
-```plantuml
-@startuml
-participant "Optional evaluation job" as Job
-participant "Carbon service" as Carbon
-participant "Intensity source" as Source
-participant Monitoring as Monitor
-Carbon -> Source : Request carbon intensity
-Source --> Carbon : Reading or error
-Job -> Carbon : Read intensity and freshness
-Carbon --> Job : Value and status
-alt Fresh reading is high and delay limit not reached
-  Job -> Job : Delay evaluation and check again later
-  Job -> Monitor : Record deferral
-else Reading is low, unavailable, or maximum delay reached
-  Job -> Job : Run evaluation
-  Job -> Monitor : Record execution and available energy estimate
-end
-@enduml
+```mermaid
+sequenceDiagram
+    participant Job as Optional evaluation job
+    participant Carbon as Carbon service
+    participant Source as Intensity source
+    participant Monitor as Monitoring
+    Carbon->>Source: Request carbon intensity
+    Source-->>Carbon: Reading or error
+    Job->>Carbon: Read intensity and freshness
+    Carbon-->>Job: Value and status
+    alt Fresh reading is high and delay limit not reached
+      Job->>Job: Delay evaluation and check again later
+      Job->>Monitor: Record deferral
+    else Reading is low, unavailable, or maximum delay reached
+      Job->>Job: Run evaluation
+      Job->>Monitor: Record execution and available energy estimate
+    end
 ```
 
 Thresholds and maximum delay remain open. Simulated readings must be labelled. Carbon figures are estimates; local measurements do not directly measure the energy used by a hosted model.
