@@ -1,5 +1,9 @@
 # Robin Hoodie First Iteration
 
+Team: Mario Palagyi, Jerome Puthuparampil, Balqiz Azami
+Final Deadline: 4th December
+Course: AI Architecture and Cloud Computing
+
 Robin Hoodie is a web application where players try to make an AI model reveal a fictional password. Each level uses a different defense. After finding the password, the player enters it into a validator to complete the level.
 
 This document describes our first design: the project specification, important use cases, UML models, and architecture decisions. It does not describe the full implementation. Python is confirmed for the backend; choices marked **proposed** still need team agreement.
