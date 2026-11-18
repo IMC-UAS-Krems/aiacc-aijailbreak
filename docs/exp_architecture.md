@@ -123,24 +123,40 @@ Model hosting is undecided: hosted inference or a local model runtime are both c
 
 ### Component diagram
 
-```mermaid
-flowchart LR
-    Player[Player] --> UI[Frontend]
-    UI --> API[Game API]
-    API --> Guard[Guard service<br/>Levels 4 and 5 only]
-    API --> LLM[LLM service]
-    LLM --> Primary[Primary model]
-    LLM --> Fallback[Approved fallback model]
-    API --> DB[(Postgres)]
-    API --> Carbon[Carbon service]
-    Carbon --> Source[Carbon intensity source<br/>Live or simulated]
-    Carbon --> Batch[Flexible evaluation job policy]
-    Batch --> Jobs[Nonessential batch evaluations]
-    API -. telemetry .-> Obs[Metrics logs and traces]
-    Guard -. telemetry .-> Obs
-    LLM -. telemetry .-> Obs
-    Carbon -. telemetry .-> Obs
-    Obs --> Dash[Grafana dashboards]
+```plantuml
+@startuml
+left to right direction
+rectangle "Player" as Player
+rectangle "Frontend" as UI
+rectangle "Game API" as API
+rectangle "Guard service\nLevels 4 and 5 only" as Guard
+rectangle "LLM service" as LLM
+rectangle "Primary model" as Primary
+rectangle "Approved fallback model" as Fallback
+database "Postgres" as DB
+rectangle "Carbon service" as Carbon
+rectangle "Carbon intensity source\nLive or simulated" as Source
+rectangle "Flexible evaluation job policy" as Batch
+rectangle "Nonessential batch evaluations" as Jobs
+rectangle "Metrics logs and traces" as Obs
+rectangle "Grafana dashboards" as Dash
+Player --> UI
+UI --> API
+API --> Guard
+API --> LLM
+LLM --> Primary
+LLM --> Fallback
+API --> DB
+API --> Carbon
+Carbon --> Source
+Carbon --> Batch
+Batch --> Jobs
+API ..> Obs : telemetry
+Guard ..> Obs : telemetry
+LLM ..> Obs : telemetry
+Carbon ..> Obs : telemetry
+Obs --> Dash
+@enduml
 ```
 
 The batch-policy component can be a small worker or scheduled job; it does not require a broker or dedicated long-running service. Browser telemetry, if added, goes through an appropriate collection endpoint rather than exposing a browser `/metrics` endpoint.
@@ -160,164 +176,169 @@ These diagrams are a primary course deliverable. They describe logical interacti
 
 ### 6.1 Prompt on a level without an input guard
 
-```mermaid
-sequenceDiagram
+```plantuml
+@startuml
     actor Player
-    participant UI as Frontend
-    participant API as Game API
-    participant LLM as LLM service
-    participant DB as Postgres
-    Player->>UI: Submit prompt on level 1, 2, or 3
-    UI->>API: Submit prompt with session and level
-    API->>API: Check access, limits, and level policy
-    Note over API,LLM: No AI input guard call on levels 1 to 3
-    API->>LLM: Generate with server-side level context
-    LLM-->>API: Response and usage, or controlled error
+    participant "Frontend" as UI
+    participant "Game API" as API
+    participant "LLM service" as LLM
+    participant "Postgres" as DB
+    Player->UI: Submit prompt on level 1, 2, or 3
+    UI->API: Submit prompt with session and level
+    API->API: Check access, limits, and level policy
+    note over API,LLM: No AI input guard call on levels 1 to 3
+    API->LLM: Generate with server-side level context
+    LLM-->API: Response and usage, or controlled error
     alt Generation succeeded
-        API->>API: Detect leak signals for monitoring
+        API->API: Detect leak signals for monitoring
         opt Level 3
-            API->>API: Apply exact-match output filter
+            API->API: Apply exact-match output filter
         end
-        API->>DB: Save attempt, delivery outcome, and metrics
-        DB-->>API: Saved
-        API-->>UI: Model reply or filtered-response message
+        API->DB: Save attempt, delivery outcome, and metrics
+        DB-->API: Saved
+        API-->UI: Model reply or filtered-response message
     else Generation failed
-        API->>DB: Record failed attempt if DB available
-        API-->>UI: Controlled error
+        API->DB: Record failed attempt if DB available
+        API-->UI: Controlled error
     end
-    UI-->>Player: Display outcome
-    Note over Player,DB: A leaked password does not complete the level
+    UI-->Player: Display outcome
+    note over Player,DB: A leaked password does not complete the level
+@enduml
 ```
 
 ### 6.2 Guarded prompt with block and failure branches
 
-```mermaid
-    sequenceDiagram
+```plantuml
+@startuml
         actor Player
-        participant UI as Frontend
-        participant API as Game API
-        participant Guard as Guard service
-        participant LLM as LLM service
-        participant DB as Postgres
-        Player->>UI: Submit prompt on level 4 or 5
-        UI->>API: Submit prompt
-        API->>API: Check access and rate limits
-        API->>Guard: Classify prompt with level threshold
+        participant "Frontend" as UI
+        participant "Game API" as API
+        participant "Guard service" as Guard
+        participant "LLM service" as LLM
+        participant "Postgres" as DB
+        Player->UI: Submit prompt on level 4 or 5
+        UI->API: Submit prompt
+        API->API: Check access and rate limits
+        API->Guard: Classify prompt with level threshold
         alt Guard returns BLOCK
-            Guard-->>API: BLOCK and score
-            API->>DB: Save blocked attempt and metrics
-            API-->>UI: Blocked result
+            Guard-->API: BLOCK and score
+            API->DB: Save blocked attempt and metrics
+            API-->UI: Blocked result
         else Guard times out or fails
-            Note over API,Guard: Deadline expires or error is returned
-            API->>DB: Record guard failure if DB available
-            API-->>UI: Controlled unavailable message
-            Note over API,LLM: Fail closed, do not call model
+            note over API,Guard: Deadline expires or error is returned
+            API->DB: Record guard failure if DB available
+            API-->UI: Controlled unavailable message
+            note over API,LLM: Fail closed, do not call model
         else Guard returns ALLOW
-            Guard-->>API: ALLOW and score
-            API->>LLM: Generate using level context
-            LLM-->>API: Response or controlled failure
+            Guard-->API: ALLOW and score
+            API->LLM: Generate using level context
+            LLM-->API: Response or controlled failure
             alt Generation succeeded
-                API->>API: Detect leak signals
+                API->API: Detect leak signals
                 opt Level 5
-                    API->>API: Apply defined output checks
+                    API->API: Apply defined output checks
                 end
-                API->>DB: Save attempt and delivery outcome
-                API-->>UI: Reply or filtered-response message
+                API->DB: Save attempt and delivery outcome
+                API-->UI: Reply or filtered-response message
             else Generation failed
-                API->>DB: Record failed attempt if DB available
-                API-->>UI: Controlled error
+                API->DB: Record failed attempt if DB available
+                API-->UI: Controlled error
             end
         end
-        UI-->>Player: Display outcome
+        UI-->Player: Display outcome
+@enduml
 ```
 
 ### 6.3 Output filtering and leak observation
 
-```mermaid
-sequenceDiagram
-    participant LLM as LLM service
-    participant API as Game API
-    participant Checks as Output checks inside Game API
-    participant DB as Postgres
-    participant UI as Frontend
-    LLM-->>API: Raw model response
-    API->>Checks: Evaluate response against server-side password
-    Checks-->>API: Leak signal and level-specific filter decision
+```plantuml
+@startuml
+    participant "LLM service" as LLM
+    participant "Game API" as API
+    participant "Output checks inside Game API" as Checks
+    participant "Postgres" as DB
+    participant "Frontend" as UI
+    LLM-->API: Raw model response
+    API->Checks: Evaluate response against server-side password
+    Checks-->API: Leak signal and level-specific filter decision
     alt Active output filter matches
-        API->>API: Replace response with filtered notice
-        API->>DB: Save detected and suppressed outcome
-        API-->>UI: Filtered notice
+        API->API: Replace response with filtered notice
+        API->DB: Save detected and suppressed outcome
+        API-->UI: Filtered notice
     else No active filter or no filter match
-        API->>DB: Save detection and delivery outcome
-        API-->>UI: Model response, possibly containing password
+        API->DB: Save detection and delivery outcome
+        API-->UI: Model response, possibly containing password
     end
-    Note over API,DB: Neither branch awards completion
+    note over API,DB: Neither branch awards completion
+@enduml
 ```
 
 **Proposed:** buffer model responses until output checks finish. Streaming unchecked tokens could expose a password before the filter can suppress it.
 
 ### 6.4 Password validation and level unlocking
 
-```mermaid
-sequenceDiagram
+```plantuml
+@startuml
     actor Player
-    participant UI as Frontend
-    participant API as Game API
-    participant Validator as Validator inside Game API
-    participant DB as Postgres
-    Player->>UI: Enter recovered password
-    UI->>API: Submit guess with session and level
-    API->>API: Check level access and guess rate limit
-    API->>Validator: Compare guess with server-side password
-    Validator-->>API: Correct or incorrect
+    participant "Frontend" as UI
+    participant "Game API" as API
+    participant "Validator inside Game API" as Validator
+    participant "Postgres" as DB
+    Player->UI: Enter recovered password
+    UI->API: Submit guess with session and level
+    API->API: Check level access and guess rate limit
+    API->Validator: Compare guess with server-side password
+    Validator-->API: Correct or incorrect
     alt Incorrect
-        API->>DB: Save unsuccessful validation attempt
-        DB-->>API: Saved
-        API-->>UI: Incorrect result; allow another try
+        API->DB: Save unsuccessful validation attempt
+        DB-->API: Saved
+        API-->UI: Incorrect result; allow another try
     else Correct
-        API->>DB: Transaction: save validation, completion, and next unlock
+        API->DB: Transaction: save validation, completion, and next unlock
         alt Transaction committed
-            DB-->>API: Saved progress, including existing completion if repeated
-            API-->>UI: Success and current available levels
+            DB-->API: Saved progress, including existing completion if repeated
+            API-->UI: Success and current available levels
         else Database failure
-            DB-->>API: Transaction failed
-            API-->>UI: Controlled error; progress not confirmed
+            DB-->API: Transaction failed
+            API-->UI: Controlled error; progress not confirmed
         end
     end
-    UI-->>Player: Show result screen
+    UI-->Player: Show result screen
+@enduml
 ```
 
 The last level produces a game-complete result instead of unlocking a nonexistent next level. An incorrect guess must not return the expected password.
 
 ### 6.5 Model failure and fallback
 
-```mermaid
-sequenceDiagram
-    participant API as Game API
-    participant LLM as LLM service
-    participant Primary as Primary model
-    participant Fallback as Approved fallback model
-    participant Obs as Observability
-    API->>LLM: Generate with level context and deadline
-    LLM->>Primary: Request inference
+```plantuml
+@startuml
+    participant "Game API" as API
+    participant "LLM service" as LLM
+    participant "Primary model" as Primary
+    participant "Approved fallback model" as Fallback
+    participant "Observability" as Obs
+    API->LLM: Generate with level context and deadline
+    LLM->Primary: Request inference
     alt Primary succeeds
-        Primary-->>LLM: Response and usage
-        LLM-->>API: Response with primary model identity
+        Primary-->LLM: Response and usage
+        LLM-->API: Response with primary model identity
     else Primary unavailable or times out
-        LLM->>Obs: Record failure and fallback reason
+        LLM->Obs: Record failure and fallback reason
         alt Approved fallback exists and time budget remains
-            LLM->>Fallback: Same password, instructions, and safety policy
+            LLM->Fallback: Same password, instructions, and safety policy
             alt Fallback succeeds
-                Fallback-->>LLM: Response and usage
-                LLM-->>API: Response with fallback model identity
+                Fallback-->LLM: Response and usage
+                LLM-->API: Response with fallback model identity
             else Fallback fails
-                LLM-->>API: Controlled unavailable error
+                LLM-->API: Controlled unavailable error
             end
         else No approved fallback or deadline exhausted
-            LLM-->>API: Controlled unavailable error
+            LLM-->API: Controlled unavailable error
         end
     end
-    Note over API,LLM: Successful responses still pass through level output checks
+    note over API,LLM: Successful responses still pass through level output checks
+@enduml
 ```
 
 A fallback may change difficulty even with identical instructions. Test it per level, record its identity, and use a controlled error if no acceptable fallback is configured. A safety refusal is not an availability failure and must not trigger a fallback intended to bypass safeguards.
@@ -326,67 +347,69 @@ A fallback may change difficulty even with identical instructions. Test it per l
 
 **Proposed initial adaptation:** defer nonessential batch evaluations during high carbon intensity. Interactive gameplay and mandatory CI checks remain available. Model switching during a player session is not part of the initial carbon policy.
 
-```mermaid
-sequenceDiagram
-    participant Source as Carbon intensity source
-    participant Carbon as Carbon service
-    participant Scheduler as Batch policy worker
-    participant Job as Optional batch evaluation
-    participant Obs as Observability
-    Carbon->>Source: Request intensity for configured zone
+```plantuml
+@startuml
+    participant "Carbon intensity source" as Source
+    participant "Carbon service" as Carbon
+    participant "Batch policy worker" as Scheduler
+    participant "Optional batch evaluation" as Job
+    participant "Observability" as Obs
+    Carbon->Source: Request intensity for configured zone
     alt Fresh data available
-        Source-->>Carbon: Intensity, timestamp, and source
-        Carbon->>Carbon: Cache reading and freshness
+        Source-->Carbon: Intensity, timestamp, and source
+        Carbon->Carbon: Cache reading and freshness
     else Source unavailable
-        Carbon->>Carbon: Mark stale or unavailable
+        Carbon->Carbon: Mark stale or unavailable
     end
-    Scheduler->>Carbon: Read intensity and freshness
-    Carbon-->>Scheduler: Value, source, freshness, simulation flag
+    Scheduler->Carbon: Read intensity and freshness
+    Carbon-->Scheduler: Value, source, freshness, simulation flag
     alt Fresh intensity above threshold and deferral budget remains
-        Scheduler->>Scheduler: Defer optional job
-        Scheduler->>Obs: Record deferral and reason
+        Scheduler->Scheduler: Defer optional job
+        Scheduler->Obs: Record deferral and reason
     else Fresh intensity acceptable
-        Scheduler->>Job: Run evaluation
-        Job->>Obs: Record work, duration, and energy estimate
+        Scheduler->Job: Run evaluation
+        Job->Obs: Record work, duration, and energy estimate
     else Data stale or unavailable, or maximum delay reached
-        Scheduler->>Job: Run under normal schedule policy
-        Scheduler->>Obs: Record policy fallback; no unsupported green claim
+        Scheduler->Job: Run under normal schedule policy
+        Scheduler->Obs: Record policy fallback; no unsupported green claim
     end
-    Note over Scheduler,Job: Interactive requests and mandatory release checks are never deferred
+    note over Scheduler,Job: Interactive requests and mandatory release checks are never deferred
+@enduml
 ```
 
 The intensity threshold, polling interval, freshness limit, and maximum deferral period remain open. A mock source must demonstrate low intensity, high intensity, and unavailable-data behavior with clearly labelled simulated readings.
 
 ### 6.7 CI/CD
 
-```mermaid
-sequenceDiagram
+```plantuml
+@startuml
     actor Developer
-    participant Repo as GitHub repository
-    participant CI as CI runner
-    participant Registry as Container registry
-    participant Cluster as Demo Kubernetes cluster
-    Developer->>Repo: Push change or open pull request
-    Repo->>CI: Start workflow
-    CI->>CI: Lint, unit tests, integration tests, and safety regressions
-    CI->>CI: Dependency, source, secret, and image checks
-    CI->>CI: Build images and validate deployment templates
+    participant "GitHub repository" as Repo
+    participant "CI runner" as CI
+    participant "Container registry" as Registry
+    participant "Demo Kubernetes cluster" as Cluster
+    Developer->Repo: Push change or open pull request
+    Repo->CI: Start workflow
+    CI->CI: Lint, unit tests, integration tests, and safety regressions
+    CI->CI: Dependency, source, secret, and image checks
+    CI->CI: Build images and validate deployment templates
     alt Required checks fail
-        CI-->>Repo: Failed status; stop release
+        CI-->Repo: Failed status; stop release
     else Required checks pass
-        CI-->>Repo: Passed status
+        CI-->Repo: Passed status
         opt Authorized deployment branch or manual deployment
-            CI->>Registry: Push versioned images
-            CI->>Cluster: Deploy release
-            CI->>Cluster: Check readiness and run smoke tests
+            CI->Registry: Push versioned images
+            CI->Cluster: Deploy release
+            CI->Cluster: Check readiness and run smoke tests
             alt Healthy deployment
-                CI-->>Repo: Deployment successful
+                CI-->Repo: Deployment successful
             else Deployment unhealthy
-                CI->>Cluster: Roll back application release where supported
-                CI-->>Repo: Deployment failed
+                CI->Cluster: Roll back application release where supported
+                CI-->Repo: Deployment failed
             end
         end
     end
+@enduml
 ```
 
 The deployment runner needs an explicit connection to the demo cluster. A local cluster is not assumed to be reachable from a hosted runner. Select a local runner or another documented deployment arrangement. Manifest validation alone is not an actual deployment.
@@ -573,7 +596,7 @@ Everyone contributes to diagrams, ADRs, and integration testing. The application
 |---|---|
 | AI system and cloud architecture | Playable game, container services, Kubernetes deployment, cloud deployment ADR |
 | ADRs | Completed decision records with alternatives and consequences |
-| UML sequence diagrams | Editable Mermaid sources covering normal requests, defenses, failures, fallback, persistence, and carbon adaptation |
+| UML sequence diagrams | Editable PlantUML sources covering normal requests, defenses, failures, fallback, persistence, and carbon adaptation |
 | CI/CD | Workflow runs showing checks, builds, a deployment, and health verification |
 | Observability | Dashboards plus correlated logs/traces for normal and failed requests |
 | Carbon measurement and adaptation | Documented measurement boundaries, labelled estimates, and a demonstrated high/low/unavailable policy flow |
