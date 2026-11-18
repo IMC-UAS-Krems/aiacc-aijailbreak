@@ -6,7 +6,7 @@ Course: AI Architecture and Cloud Computing
 
 Robin Hoodie is a web application where players try to make an AI model reveal a fictional password. Each level uses a different defense. After finding the password, the player enters it into a validator to complete the level.
 
-This document describes our first design: the project specification, important use cases, UML models, and architecture decisions. It does not describe the full implementation. Python is confirmed for the backend; choices marked **proposed** still need team agreement.
+This document describes the broader project design. The current local Level 1 slice is described in [the implementation plan](LOCAL_LEVEL1_IMPLEMENTATION_PLAN.md) and [verification record](LOCAL_LEVEL1_VERIFICATION.md). On 17 November the user confirmed Python, React and Vite and excluded FastAPI; the implementation uses Flask for its Python HTTP API. Browser-local saves and Level 1-only availability apply to this slice. The database, deployment and other-level plans below remain future work.
 
 ## 1 Project specification
 
@@ -280,9 +280,9 @@ These are short first-iteration decision records. “Accepted” records agreed 
 
 ### ADR 1 Python backend and React frontend
 
-- **Status:** Python accepted; frameworks proposed.
+- **Status:** Python, React/TypeScript and Vite confirmed for the current slice. Flask selected for the Python API; FastAPI excluded by the user's implementation instruction.
 - **Context:** We need an interactive chat interface, level selection, and password validation, with a backend that can integrate AI services.
-- **Decision:** Use Python for the backend, with FastAPI proposed. Propose React with TypeScript for the frontend and Vite for development and builds. Keep game rules and password checking in the Python backend. Mantine UI library for prettiness.
+- **Decision:** Use Python/Flask for the backend, React with TypeScript for the frontend and Vite for development/builds. Keep game rules and password checking in the Python backend. Use shared CSS and semantic React components for this slice; Mantine is not a dependency.
 - **Alternatives considered:** Plain HTML/CSS/JavaScript or a server-rendered interface.
 - **Consequences:** React lets us reuse interface components and manage changing chat and game state. TypeScript helps catch data-shape mistakes during development. Both add learning and build setup, so we will keep the interface small and avoid extra frontend infrastructure initially. Visual styling still needs separate attention.
 
