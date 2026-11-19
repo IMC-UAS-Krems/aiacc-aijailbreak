@@ -73,9 +73,9 @@ class RealModelAPI(unittest.TestCase):
         levels = self.api.get("/api/levels").json()["levels"]
         self.assertEqual([item["id"] for item in levels], [1, 2, 3, 4, 5])
         for item in levels:
-            self.assertIs(item["available"], item["id"] == 1)
-            self.assertIs(item["implemented"], item["id"] == 1)
-        for level in range(2, 6):
+            self.assertIs(item["available"], item["id"] in (1, 2))
+            self.assertIs(item["implemented"], item["id"] in (1, 2))
+        for level in range(3, 6):
             response = self.api.post("/api/validate", {"level_id": level, "password": password})
             self.assertIn(response.status, (400, 403, 404, 422))
             self.assertFalse(response.json().get("completed", False))

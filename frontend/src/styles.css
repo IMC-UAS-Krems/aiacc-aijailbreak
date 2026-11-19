@@ -108,6 +108,8 @@ textarea { width: 100%; resize: vertical; max-height: 150px; min-height: 65px; f
 .success h2 { font-size: 23px; margin-bottom: 9px; }
 .success p:not(.eyebrow) { margin: 0; font-size: 13px; }
 .success button { flex-shrink: 0; font-size: 14px; margin-left: auto; }
+.success-actions { display: flex; gap: 10px; margin-left: auto; flex-shrink: 0; flex-wrap: wrap; }
+.success-actions button { margin-left: 0; font-size: 14px; }
 .success-mark { display: grid; place-items: center; background: #f7f1db; color: #657444; border-radius: 50%; width: 44px; height: 44px; flex-shrink: 0; font-size: 28px; }
 .level-footnote { text-align: center; font-size: 11px; margin: 17px 0 0 23%; color: #715d42; }
 .save-warning, .service-warning { position: relative; width: fit-content; max-width: calc(100% - 32px); margin: 14px auto; background: #f4e6c9; border: 1px solid #cdb48c; border-radius: 16px; padding: 10px 18px; font-size: 13px; }

@@ -2,11 +2,20 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api, type ChatRequest, type Message } from './api';
 import { Castle, Robin } from './Artwork';
 
-const OPENING = 'Welcome to the castle stores. What would you like to know?';
-interface Props { onStarted: () => void; onCompleted: () => void; onReplay: () => void }
+const OPENING_LEVEL1 = 'Welcome to the castle stores. What would you like to know?';
+const OPENING_LEVEL2 = 'The inner gate is guarded. How can I help you today?';
 
-export default function LevelOne({ onStarted, onCompleted, onReplay }: Props) {
-  const [messages, setMessages] = useState<Message[]>([{ role: 'assistant', content: OPENING }]);
+interface Props {
+  levelId?: number;
+  onStarted?: (levelId: number) => void;
+  onCompleted: (levelId: number) => void;
+  onReplay: () => void;
+  onPlayNext?: () => void;
+}
+
+export default function LevelOne({ levelId = 1, onStarted, onCompleted, onReplay, onPlayNext }: Props) {
+  const initialOpening = levelId === 2 ? OPENING_LEVEL2 : OPENING_LEVEL1;
+  const [messages, setMessages] = useState<Message[]>([{ role: 'assistant', content: initialOpening }]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -23,18 +32,26 @@ export default function LevelOne({ onStarted, onCompleted, onReplay }: Props) {
   const log = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
   const success = useRef<HTMLHeadingElement>(null);
+  const onStartedRef = useRef(onStarted);
+  onStartedRef.current = onStarted;
 
   useEffect(() => {
     active.current = true;
-    onStarted();
+    onStartedRef.current?.(levelId);
     const controller = new AbortController();
     controllers.current.add(controller);
-    api<{ id: number }>('/levels/1', undefined, controller.signal)
-      .then(level => { if (level.id !== 1) throw new Error('Level 1 is unavailable. Please return to the menu.'); })
+    api<{ id: number; opening_message?: string }>(`/levels/${levelId}`, undefined, controller.signal)
+      .then(level => {
+        if (level.id !== levelId) throw new Error(`Level ${levelId} is unavailable. Please return to the menu.`);
+        if (level.opening_message && active.current) {
+          setMessages([{ role: 'assistant', content: level.opening_message }]);
+        }
+      })
       .catch(problem => { if (active.current) setContextError(problem.message); })
       .finally(() => controllers.current.delete(controller));
     return () => { active.current = false; controllers.current.forEach(item => item.abort()); controllers.current.clear(); };
-  }, [onStarted]);
+  }, [levelId]);
+
   useLayoutEffect(() => {
     if (follow.current && log.current) log.current.scrollTop = log.current.scrollHeight;
   }, [messages, busy, error]);
@@ -64,7 +81,7 @@ export default function LevelOne({ onStarted, onCompleted, onReplay }: Props) {
     const message: Message = { role: 'user', content: draft };
     const next = [...messages, message];
     setMessages(next); setDraft('');
-    void requestReply({ level_id: 1, messages: next.slice(1) });
+    void requestReply({ level_id: levelId, messages: next.slice(1) });
   }
 
   async function validate() {
@@ -72,12 +89,11 @@ export default function LevelOne({ onStarted, onCompleted, onReplay }: Props) {
     pendingValidation.current = true; setValidating(true); setFeedback('');
     const controller = new AbortController(); controllers.current.add(controller);
     try {
-      const result = await api<{ level_id: number; correct: boolean; completed: boolean }>('/validate', { level_id: 1, password }, controller.signal);
+      const result = await api<{ level_id: number; correct: boolean; completed: boolean }>('/validate', { level_id: levelId, password }, controller.signal);
       if (!active.current) return;
-      if (result.level_id !== 1 || typeof result.correct !== 'boolean' || result.correct !== result.completed) throw new Error('Validation failed. Please try again.');
+      if (result.level_id !== levelId || typeof result.correct !== 'boolean' || result.correct !== result.completed) throw new Error('Validation failed. Please try again.');
       if (result.correct) {
-        // Completion has exactly one source: a successful validator response.
-        setComplete(true); onCompleted();
+        setComplete(true); onCompleted(levelId);
       } else setFeedback('Not quite. That password doesn’t match. Try another one.');
     } catch (problem) {
       if (active.current) setFeedback(problem instanceof Error ? problem.message : 'Validation failed. Please try again.');
@@ -87,13 +103,28 @@ export default function LevelOne({ onStarted, onCompleted, onReplay }: Props) {
     }
   }
 
+  const isLevel2 = levelId === 2;
+
   return <main className="level-content">
-    <div className="level-heading"><div><p className="eyebrow" data-testid="level-context">LEVEL 1</p><h1>The Open Gate</h1></div><p>Chat with the castle.<br />Find the secret. Help the villagers.</p></div>
+    <div className="level-heading">
+      <div>
+        <p className="eyebrow" data-testid="level-context">{isLevel2 ? 'LEVEL 2' : 'LEVEL 1'}</p>
+        <h1>{isLevel2 ? 'The Guarded Gate' : 'The Open Gate'}</h1>
+      </div>
+      <p>{isLevel2 ? <>The castle guard is watchful.<br />Outsmart the instruction to reveal the secret.</> : <>Chat with the castle.<br />Find the secret. Help the villagers.</>}</p>
+    </div>
     {contextError && <p className="service-warning" role="alert">{contextError}</p>}
     <div className="game-layout">
-      <aside className="robin-aside"><Robin /><p>A curious question can<br />open a castle gate.</p></aside>
+      <aside className="robin-aside">
+        <Robin />
+        <p>{isLevel2 ? <>Direct questions won’t work.<br />Be clever.</> : <>A curious question can<br />open a castle gate.</>}</p>
+      </aside>
       <section className="conversation" aria-label="Conversation with Castle AI">
-        <div className="conversation-heading"><Castle /><div><strong>Castle stores</strong><span>A conversation with Castle AI</span></div><span className="open-label">Gate 01</span></div>
+        <div className="conversation-heading">
+          <Castle />
+          <div><strong>Castle stores</strong><span>A conversation with Castle AI</span></div>
+          <span className="open-label">{isLevel2 ? 'Gate 02' : 'Gate 01'}</span>
+        </div>
         <div className="chat-log" data-testid="chat-messages" ref={log} role="log" aria-label="Messages" aria-live="polite" onScroll={() => { const el = log.current; if (el) follow.current = el.scrollHeight - el.clientHeight - el.scrollTop < 60; }}>
           {messages.map((message, index) => <div key={index} className={`message ${message.role}`} data-testid="chat-message">
             <div className="avatar">{message.role === 'user' ? <Robin face /> : <Castle />}</div>
@@ -111,7 +142,20 @@ export default function LevelOne({ onStarted, onCompleted, onReplay }: Props) {
       </section>
     </div>
     {complete ? <section className="success" data-testid="level-complete" aria-label="Level complete">
-      <span className="success-mark" aria-hidden="true">✓</span><div><p className="eyebrow">LEVEL 1 COMPLETE</p><h2 ref={success} tabIndex={-1}>A little mischief. A lot of good.</h2><p>You recovered the castle’s resources for the villagers.<br />The remaining levels are coming later.</p></div><button onClick={onReplay}>Replay Level 1</button>
+      <span className="success-mark" aria-hidden="true">✓</span>
+      <div>
+        <p className="eyebrow">{isLevel2 ? 'LEVEL 2 COMPLETE' : 'LEVEL 1 COMPLETE'}</p>
+        <h2 ref={success} tabIndex={-1}>{isLevel2 ? 'Past the guard. The vault is open.' : 'A little mischief. A lot of good.'}</h2>
+        <p>{isLevel2 ? <>You outsmarted the guarded gate.<br />Levels 3–5 are coming later.</> : <>You recovered the castle’s resources for the villagers.<br />The Guarded Gate is now open.</>}</p>
+      </div>
+      <div className="success-actions">
+        {!isLevel2 && onPlayNext && (
+          <button className="play-level-2" onClick={onPlayNext}>Play Level 2 <span aria-hidden="true">→</span></button>
+        )}
+        <button className={!isLevel2 && onPlayNext ? 'secondary' : ''} onClick={onReplay}>
+          {isLevel2 ? 'Replay Level 2' : 'Replay Level 1'}
+        </button>
+      </div>
     </section> : <section className="validator" aria-label="Password validator">
       <form onSubmit={event => { event.preventDefault(); void validate(); }}><div className="validator-label"><label htmlFor="password">Password</label><span>Found the secret? Submit it here.</span></div><input id="password" value={password} onChange={event => setPassword(event.target.value)} placeholder="Enter the castle password…" autoComplete="off" spellCheck={false} /><button disabled={validating}>Submit password</button></form>
       {validating && <p role="status">Checking your password…</p>}

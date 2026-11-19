@@ -1,11 +1,12 @@
 """Flask HTTP boundary; model transport and game rules stay separate."""
+import os
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, session
 from werkzeug.exceptions import HTTPException
 
 from .config import Settings
-from .levels import IMPLEMENTED_LEVELS, OPENING, catalogue
+from .levels import IMPLEMENTED_LEVELS, OPENINGS, catalogue
 from .model_client import ModelError, chat
 
 
@@ -15,18 +16,29 @@ class ClientError(Exception):
         self.status = status
 
 
+def get_unlocked_levels():
+    stored = session.get("unlocked_levels")
+    if isinstance(stored, (list, tuple, set)):
+        return set(stored).union({1})
+    return {1}
+
+
 def level_body():
     body = request.get_json(silent=True)
     if not isinstance(body, dict) or type(body.get("level_id")) is not int:
         raise ClientError("A numeric integer level_id is required.")
-    if body["level_id"] not in IMPLEMENTED_LEVELS:
+    level_id = body["level_id"]
+    if level_id not in IMPLEMENTED_LEVELS:
         raise ClientError("This level is unavailable in this version.", 404)
+    if level_id not in get_unlocked_levels():
+        raise ClientError("This level is locked. Complete previous levels first.", 403)
     return body
 
 
 def create_app(settings=None):
     settings = settings or Settings.from_env()
     app = Flask(__name__, static_folder=None)
+    app.secret_key = os.getenv("ROBIN_SECRET_KEY", "robin-hoodie-session-secret-2026")
     app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
     public = Path(__file__).resolve().parents[1] / "frontend" / "dist"
 
@@ -41,17 +53,26 @@ def create_app(settings=None):
 
     @app.get("/api/levels")
     def levels():
-        return jsonify(levels=catalogue())
+        return jsonify(levels=catalogue(get_unlocked_levels()))
 
     @app.get("/api/levels/<level_id>")
     def level(level_id):
-        if level_id != "1":
+        try:
+            num = int(level_id)
+        except (ValueError, TypeError):
             raise ClientError("This level is unavailable in this version.", 404)
-        return jsonify(**catalogue()[0], opening_message=OPENING)
+        if num not in IMPLEMENTED_LEVELS:
+            raise ClientError("This level is unavailable in this version.", 404)
+        if num not in get_unlocked_levels():
+            raise ClientError("This level is locked. Complete previous levels first.", 403)
+        cat = catalogue(get_unlocked_levels())
+        info = next(item for item in cat if item["id"] == num)
+        return jsonify(**info, opening_message=OPENINGS.get(num, ""))
 
     @app.post("/api/chat")
     def conversation():
         body = level_body()
+        level_id = body["level_id"]
         messages = body.get("messages")
         if not isinstance(messages, list) or not messages:
             raise ClientError("Provide a nonempty conversation.")
@@ -63,16 +84,27 @@ def create_app(settings=None):
             clean.append({"role": message["role"], "content": message["content"]})
         if clean[-1]["role"] != "user":
             raise ClientError("The last message must be from the player.")
-        return jsonify(reply=chat(settings, clean))
+        return jsonify(reply=chat(settings, clean, level_id=level_id))
 
     @app.post("/api/validate")
     def validate():
         body = level_body()
+        level_id = body["level_id"]
         guess = body.get("password")
         if not isinstance(guess, str):
             raise ClientError("Provide a password as text.")
-        correct = guess.strip().casefold() == settings.password.strip().casefold()
-        return jsonify(level_id=1, correct=correct, completed=correct)
+        expected = settings.get_password(level_id)
+        correct = guess.strip().casefold() == expected.strip().casefold()
+        if correct and level_id == 1:
+            unlocked = get_unlocked_levels()
+            unlocked.add(2)
+            session["unlocked_levels"] = sorted(unlocked)
+        return jsonify(level_id=level_id, correct=correct, completed=correct)
+
+    @app.post("/api/reset")
+    def reset_session():
+        session.clear()
+        return jsonify(reset=True)
 
     @app.get("/")
     @app.get("/<path:path>")

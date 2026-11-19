@@ -2,9 +2,10 @@
 
 import json
 from dataclasses import dataclass
+from http.cookiejar import CookieJar
 from urllib.error import HTTPError
 from urllib.parse import urlparse
-from urllib.request import ProxyHandler, Request, build_opener
+from urllib.request import HTTPCookieProcessor, ProxyHandler, Request, build_opener
 
 
 def local_url(value):
@@ -31,7 +32,11 @@ class API:
     def __init__(self, base_url, timeout=8):
         self.base_url = local_url(base_url)
         self.timeout = timeout
-        self.opener = build_opener(ProxyHandler({}))
+        self.cookies = CookieJar()
+        self.opener = build_opener(ProxyHandler({}), HTTPCookieProcessor(self.cookies))
+
+    def reset_session(self):
+        self.cookies.clear()
 
     def request(self, method, path, body=None, *, raw=None):
         data = raw if raw is not None else (
@@ -51,5 +56,5 @@ class API:
     def get(self, path):
         return self.request("GET", path)
 
-    def post(self, path, body):
+    def post(self, path, body=None):
         return self.request("POST", path, body)
