@@ -1,7 +1,9 @@
 export const SAVE_KEY = 'robin-hoodie.progress.v1';
-export interface Progress { version: 1; started: boolean; currentLevel: 1; completedLevels: number[] }
+export interface Progress { version: 1; started: boolean; currentLevel: number; completedLevels: number[] }
 export const freshProgress = (): Progress => ({ version: 1, started: false, currentLevel: 1, completedLevels: [] });
 export const SAVE_WARNING = 'Progress cannot be saved in this browser. You can still play in this session.';
+
+export const SUPPORTED_LEVELS = [1, 2] as const;
 
 export function sanitize(value: unknown): Progress {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return freshProgress();
@@ -9,8 +11,15 @@ export function sanitize(value: unknown): Progress {
   if (saved.version !== 1 || typeof saved.started !== 'boolean' ||
       typeof saved.currentLevel !== 'number' || !Number.isInteger(saved.currentLevel) ||
       !Array.isArray(saved.completedLevels)) return freshProgress();
-  return { version: 1, started: saved.started, currentLevel: 1,
-    completedLevels: saved.started && saved.completedLevels.includes(1) ? [1] : [] };
+  if (!saved.started) return freshProgress();
+
+  const completedLevels = Array.from(new Set(
+    saved.completedLevels.filter((id): id is number => typeof id === 'number' && Number.isInteger(id) && (SUPPORTED_LEVELS as readonly number[]).includes(id))
+  )).sort((a, b) => a - b);
+
+  const currentLevel = (SUPPORTED_LEVELS as readonly number[]).includes(saved.currentLevel) ? saved.currentLevel : 1;
+
+  return { version: 1, started: true, currentLevel, completedLevels };
 }
 
 export function loadProgress(): { progress: Progress; warning: string } {

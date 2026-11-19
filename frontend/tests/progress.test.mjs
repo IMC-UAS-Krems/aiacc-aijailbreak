@@ -24,18 +24,27 @@ test('absent save starts a new adventure', () => {
   assert.deepEqual(loadProgress(), { progress: freshProgress(), warning: '' });
 });
 test('started and completed progress survive writing and reading', () => {
-  for (const completed of [false, true]) {
-    assert.equal(writeProgress(started(completed)), '');
-    assert.deepEqual(loadProgress().progress, started(completed));
+  for (const progress of [
+    started(false),
+    started(true),
+    { version: 1, started: true, currentLevel: 2, completedLevels: [1] },
+    { version: 1, started: true, currentLevel: 2, completedLevels: [1, 2] },
+  ]) {
+    assert.equal(writeProgress(progress), '');
+    assert.deepEqual(loadProgress().progress, progress);
   }
 });
 test('forged progress never retains unsupported or duplicate level IDs', () => {
-  for (const currentLevel of [0, 2, 3, 4, 5, 999]) {
-    const value = { ...started(true), currentLevel, completedLevels: [1, 1, 2, 3, 4, 5, '1', true], unlockedLevels: [1, 2, 3, 4, 5] };
+  for (const currentLevel of [0, 3, 4, 5, 999]) {
+    const value = { ...started(true), currentLevel, completedLevels: [1, 1, 3, 4, 5, '1', true], unlockedLevels: [1, 2, 3, 4, 5] };
     data.set(SAVE_KEY, JSON.stringify(value));
     assert.deepEqual(loadProgress().progress, started(true));
     assert.deepEqual(JSON.parse(data.get(SAVE_KEY)), started(true));
   }
+  // Check deduplication of supported levels
+  const multiValue = { version: 1, started: true, currentLevel: 2, completedLevels: [1, 2, 1, 2, 5, '2', false] };
+  data.set(SAVE_KEY, JSON.stringify(multiValue));
+  assert.deepEqual(loadProgress().progress, { version: 1, started: true, currentLevel: 2, completedLevels: [1, 2] });
 });
 test('invalid schemas recover to fresh progress', () => {
   for (const value of [null, [], 42, {}, { ...started(), version: 999 },

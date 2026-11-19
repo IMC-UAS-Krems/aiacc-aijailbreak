@@ -10,14 +10,14 @@ import time
 from contextlib import contextmanager
 from urllib.error import URLError
 
-from tests.support.contract import MODEL_NAME, PASSWORD
+from tests.support.contract import LEVEL2_PASSWORD, MODEL_NAME, PASSWORD
 from tests.support.http import API
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 @contextmanager
-def running_backend(model_url, *, password=PASSWORD, model_name=MODEL_NAME):
+def running_backend(model_url, *, password=PASSWORD, level2_password=LEVEL2_PASSWORD, model_name=MODEL_NAME):
     raw = os.environ.get("ROBIN_TEST_BACKEND_COMMAND")
     if not raw:
         raise AssertionError(
@@ -38,7 +38,8 @@ def running_backend(model_url, *, password=PASSWORD, model_name=MODEL_NAME):
         **os.environ,
         "ROBIN_HOST": "127.0.0.1", "ROBIN_PORT": str(port),
         "ROBIN_MODEL_BASE_URL": model_url, "ROBIN_MODEL_NAME": model_name,
-        "ROBIN_LEVEL1_PASSWORD": password, "ROBIN_MODEL_TIMEOUT_SECONDS": "0.3",
+        "ROBIN_LEVEL1_PASSWORD": password, "ROBIN_LEVEL2_PASSWORD": level2_password,
+        "ROBIN_MODEL_TIMEOUT_SECONDS": "0.3",
         "PYTHONUNBUFFERED": "1",
     }
     with tempfile.TemporaryFile(mode="w+b") as log:

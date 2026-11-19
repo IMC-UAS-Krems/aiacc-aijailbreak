@@ -5,6 +5,7 @@ game must define its development password once on the backend, never import this
 """
 
 PASSWORD = "Acorn-Test-47"
+LEVEL2_PASSWORD = "Shield-Test-88"
 MODEL_NAME = "robin-test-model"
 
 
