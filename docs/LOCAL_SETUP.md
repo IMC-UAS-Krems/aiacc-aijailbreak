@@ -12,6 +12,8 @@ Set variables in the terminal that starts the corresponding server, then restart
 | `ROBIN_MODEL_NAME` | `qwen2.5:1.5b` | Backend terminal |
 | `ROBIN_MODEL_TIMEOUT_SECONDS` | `90` | Backend terminal |
 | `ROBIN_LEVEL1_PASSWORD` | Fictional default in `backend/config.py` | Backend terminal |
+| `ROBIN_LEVEL2_PASSWORD` | Fictional default in `backend/config.py` | Backend terminal |
+| `ROBIN_LEVEL4_PASSWORD` | Fictional default in `backend/config.py` | Backend terminal |
 | `ROBIN_API_URL` | `http://127.0.0.1:8000` | Vite terminal; use if changing the backend port |
 
 For example:
@@ -52,4 +54,4 @@ Key: `robin-hoodie.progress.v1` in localStorage. Started progress is:
 {"version":1,"started":true,"currentLevel":1,"completedLevels":[]}
 ```
 
-Successful backend validation adds `1` to `completedLevels`. Chat history is in memory only. Invalid saves recover gracefully; blocked/full storage leaves gameplay usable but displays a save warning.
+Successful validation records the completed level ID in the browser. The backend session controls access. In this iteration, completing Level 1 unlocks Level 2 and completing Level 2 unlocks Level 4. Chat history is in memory only. Level 4 screens and forwards one note at a time.

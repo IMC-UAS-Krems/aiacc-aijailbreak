@@ -29,14 +29,15 @@ test('started and completed progress survive writing and reading', () => {
     started(true),
     { version: 1, started: true, currentLevel: 2, completedLevels: [1] },
     { version: 1, started: true, currentLevel: 2, completedLevels: [1, 2] },
+    { version: 1, started: true, currentLevel: 4, completedLevels: [1, 2, 4] },
   ]) {
     assert.equal(writeProgress(progress), '');
     assert.deepEqual(loadProgress().progress, progress);
   }
 });
 test('forged progress never retains unsupported or duplicate level IDs', () => {
-  for (const currentLevel of [0, 3, 4, 5, 999]) {
-    const value = { ...started(true), currentLevel, completedLevels: [1, 1, 3, 4, 5, '1', true], unlockedLevels: [1, 2, 3, 4, 5] };
+  for (const currentLevel of [0, 3, 5, 999]) {
+    const value = { ...started(true), currentLevel, completedLevels: [1, 1, 3, 5, '1', true], unlockedLevels: [1, 2, 3, 4, 5] };
     data.set(SAVE_KEY, JSON.stringify(value));
     assert.deepEqual(loadProgress().progress, started(true));
     assert.deepEqual(JSON.parse(data.get(SAVE_KEY)), started(true));

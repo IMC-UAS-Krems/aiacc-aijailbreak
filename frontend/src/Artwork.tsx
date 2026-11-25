@@ -38,6 +38,19 @@ export function Castle({ className = '' }: { className?: string }) {
   </svg>;
 }
 
+export function Watchtower() {
+  return <svg viewBox="0 0 100 100" role="img" aria-label="Watchtower">
+    <g fill="none" stroke="#94775c" strokeWidth="6" strokeLinejoin="round">
+      <path d="m38 54-9 40m33-40 9 40M36 62l33 28m-5-28L31 90" />
+    </g>
+    <path d="M28 32h44v20H28Z" fill="#755c45" />
+    <path d="M28 32h6v19h-6zm19 0h6v19h-6zm19 0h6v19h-6z" fill="#dfc7a3" />
+    <path d="M20 48h60v11H20Z" fill="#cbb08c" />
+    <path d="M17 33 50 7l33 26Z" fill="#bd8758" />
+    <path d="M50 7 83 33H55Z" fill="#a57550" />
+  </svg>;
+}
+
 export function Scenery() {
   return <div className="scenery" aria-hidden="true">
     <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMax slice">

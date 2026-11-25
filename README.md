@@ -4,7 +4,7 @@
 
 A university AI-security game built with Python/Flask, React, TypeScript and Vite. Play as Robin Hoodie, chat with the castle's local AI, and recover a fictional password for the villagers.
 
-**Only Level 1 is playable.** Levels 2–5 are coming later.
+**Play Levels 1, 2, and 4 in order.** The level chooser shows Levels 3 and 5 as unavailable in this iteration.
 
 ## Requirements
 
@@ -72,7 +72,8 @@ Keep both terminals open. Press Ctrl+C to stop a server.
 - Choose **Start game** or **Continue**.
 - Ask **Castle AI** for the castle stores password. Level 1 is deliberately easy.
 - Enter the password in the separate field and click **Submit password**. Finding it in chat does not complete the level.
-- After success, replay Level 1 or return to the menu. Other levels stay locked.
+- Complete Level 1 to open the Guarded Gate (Level 2). Complete Level 2 to open the Watchtower (Level 4). If you completed Level 2 before this update, submit its password again to unlock the Watchtower in your session.
+- At the Watchtower, a lookout checks each note first. Only passed notes reach Castle AI. Both roles use the same local Qwen model. Each note stands alone, and the castle's reply goes straight to the player.
 
 Progress is saved in your browser. Continue starts a fresh conversation while keeping completion history. Use **Reset progress** on the menu to start over; it asks for confirmation. Use the same browser and address to keep your save.
 

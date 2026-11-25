@@ -6,8 +6,8 @@ from flask import Flask, jsonify, request, send_from_directory, session
 from werkzeug.exceptions import HTTPException
 
 from .config import Settings
-from .levels import IMPLEMENTED_LEVELS, OPENINGS, catalogue
-from .model_client import ModelError, chat
+from .levels import IMPLEMENTED_LEVELS, NEXT_LEVEL, OPENINGS, catalogue
+from .model_client import ModelError, chat, screen_note
 
 
 class ClientError(Exception):
@@ -84,6 +84,11 @@ def create_app(settings=None):
             clean.append({"role": message["role"], "content": message["content"]})
         if clean[-1]["role"] != "user":
             raise ClientError("The last message must be from the player.")
+        if level_id == 4:
+            # Each note stands alone. Never forward unscreened client-supplied history.
+            clean = clean[-1:]
+            if screen_note(settings, clean[0]) == "BLOCK":
+                return jsonify(blocked=True, reply="Your note was stopped at the watchtower.")
         return jsonify(reply=chat(settings, clean, level_id=level_id))
 
     @app.post("/api/validate")
@@ -95,9 +100,9 @@ def create_app(settings=None):
             raise ClientError("Provide a password as text.")
         expected = settings.get_password(level_id)
         correct = guess.strip().casefold() == expected.strip().casefold()
-        if correct and level_id == 1:
+        if correct and level_id in NEXT_LEVEL:
             unlocked = get_unlocked_levels()
-            unlocked.add(2)
+            unlocked.add(NEXT_LEVEL[level_id])
             session["unlocked_levels"] = sorted(unlocked)
         return jsonify(level_id=level_id, correct=correct, completed=correct)
 
