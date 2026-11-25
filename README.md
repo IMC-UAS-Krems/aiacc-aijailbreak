@@ -6,6 +6,59 @@ A university AI-security game built with Python/Flask, React, TypeScript and Vit
 
 **Play Levels 1, 2, and 4 in order.** The level chooser shows Levels 3 and 5 as unavailable in this iteration.
 
+## Quick Kubernetes demo
+
+The game runs in Minikube. Ollama runs on your Windows laptop. These steps assume you have Docker Desktop, Minikube, kubectl, and the Ollama model `qwen2.5:1.5b` installed.
+
+1. **Start Docker Desktop and Ollama.** Once Docker Desktop is ready, quit any running Ollama instance from the system tray. In a PowerShell window, run the following and leave it open so the game can reach Ollama. This exposes Ollama on your network interfaces, so use a trusted network.
+
+   ```powershell
+   $env:OLLAMA_HOST = "0.0.0.0:11434"
+   ollama serve
+   ```
+
+2. **Start Kubernetes.** Open a second PowerShell window in the project folder and run:
+
+   ```powershell
+   minikube start --driver=docker
+   ```
+
+   <details>
+   <summary>First demo on this cluster? Expand to deploy the game once.</summary>
+
+   Run each command in the second window and wait for it to finish before starting the next.
+
+   ```powershell
+   docker build --progress=plain -t robin-hoodie:demo .
+   minikube image load robin-hoodie:demo
+   kubectl create deployment robin-hoodie --image=robin-hoodie:demo
+   kubectl set env deployment/robin-hoodie ROBIN_MODEL_BASE_URL=http://host.minikube.internal:11434
+   ```
+
+   </details>
+
+3. **Show the game running in Kubernetes.** In the second window, run:
+
+   ```powershell
+   kubectl rollout status deployment/robin-hoodie
+   kubectl get pods -l app=robin-hoodie
+   kubectl port-forward deployment/robin-hoodie 8080:8000
+   ```
+
+   Point out the pod showing **1/1 Ready** and **Running**. When you see `Forwarding from 127.0.0.1:8080 -> 8000`, leave this window open.
+
+4. **Play in your browser.** On the same laptop, open [http://localhost:8080](http://localhost:8080). Open Level 1 and send `Hello` in the chat. Show the castle’s reply to demonstrate that the game in Kubernetes can reach Ollama.
+
+### After the demo
+
+Closing the browser leaves the game, Minikube, and Ollama running. To shut down the demo:
+
+1. In the **port-forward PowerShell window**, press **Ctrl+C**. At the prompt, run `minikube stop` and wait for it to finish. This stops the cluster and saves the deployment for next time.
+2. In the **Ollama PowerShell window** (the one running `ollama serve`), press **Ctrl+C** to stop the model server.
+3. If you opened Docker Desktop just for the demo, right-click its icon in the Windows system tray and choose **Quit Docker Desktop**.
+
+For the next demo, follow the startup steps above and skip the one-time deployment section.
+
 ## Requirements
 
 - Python 3.11 or newer

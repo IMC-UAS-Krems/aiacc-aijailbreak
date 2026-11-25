@@ -1,0 +1,9 @@
+.git
+.venv
+frontend/node_modules
+frontend/dist
+**/__pycache__
+assets
+concept
+docs
+tests
