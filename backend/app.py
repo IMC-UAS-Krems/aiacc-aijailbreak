@@ -89,7 +89,13 @@ def create_app(settings=None):
             clean = clean[-1:]
             if screen_note(settings, clean[0]) == "BLOCK":
                 return jsonify(blocked=True, reply="Your note was stopped at the watchtower.")
-        return jsonify(reply=chat(settings, clean, level_id=level_id))
+        reply = chat(settings, clean, level_id=level_id)
+        if level_id == 3:
+            # Output filter: the reply is checked before it reaches the browser. 
+            password = settings.get_password(3)
+            if password.casefold() in reply.casefold():
+                return jsonify(blocked=True, reply="The scribe crossed out a reply that contained the password.")
+        return jsonify(reply=reply)
 
     @app.post("/api/validate")
     def validate():
