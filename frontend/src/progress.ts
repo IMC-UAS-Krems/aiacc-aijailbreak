@@ -3,7 +3,7 @@ export interface Progress { version: 1; started: boolean; currentLevel: number; 
 export const freshProgress = (): Progress => ({ version: 1, started: false, currentLevel: 1, completedLevels: [] });
 export const SAVE_WARNING = 'Progress cannot be saved in this browser. You can still play in this session.';
 
-export const SUPPORTED_LEVELS = [1, 2, 4] as const;
+export const SUPPORTED_LEVELS = [1, 2, 3, 4] as const;
 
 export function sanitize(value: unknown): Progress {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return freshProgress();

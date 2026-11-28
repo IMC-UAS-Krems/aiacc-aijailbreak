@@ -123,13 +123,13 @@ export default function App() {
               <span className="level-symbol" aria-hidden="true">{!isAvailable ? '⌑' : (isDone ? '✓' : '▶')}</span>
             </span>
             <strong>{!isAvailable ? 'Locked' : (isDone ? 'Completed' : level?.name)}</strong>
-            <small>{!level ? 'Checking availability' : !level.implemented ? 'Unavailable in this version' : !isAvailable ? `Complete Level ${id === 4 ? 2 : 1} first` : isDone ? 'Play again' : 'Ready to play'}</small>
+            <small>{!level ? 'Checking availability' : !level.implemented ? 'Unavailable in this version' : !isAvailable ? `Complete Level ${id - 1} first` : isDone ? 'Play again' : 'Ready to play'}</small>
           </button>;
         })}
       </div>
       <button className="play-level" disabled={!resumeLevel} onClick={() => play(resumeId)}>Play Level {resumeId} <span aria-hidden="true">→</span></button>
       <button className="secondary" onClick={home}>Back to menu</button>
-      <p className="availability">Levels 3 and 5 are coming later.</p>
+      <p className="availability">Level 5 is coming later.</p>
       <Robin className="chooser-robin" />
     </main>}
     {inGame && (
@@ -138,7 +138,7 @@ export default function App() {
         <main className="unavailable">
           <Castle />
           <h2>Level {currentLevelId} is locked.</h2>
-          <p>Complete Level {currentLevelId === 4 ? 2 : 1} to open this gate.</p>
+          <p>Complete Level {(currentLevelId ?? 2) - 1} to open this gate.</p>
           <button onClick={() => navigate('/levels')}>Choose level</button>
         </main>
       ) : (
