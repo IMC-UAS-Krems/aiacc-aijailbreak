@@ -14,6 +14,7 @@ Set variables in the terminal that starts the corresponding server, then restart
 | `ROBIN_LEVEL1_PASSWORD` | Fictional default in `backend/config.py` | Backend terminal |
 | `ROBIN_LEVEL2_PASSWORD` | Fictional default in `backend/config.py` | Backend terminal |
 | `ROBIN_LEVEL4_PASSWORD` | Fictional default in `backend/config.py` | Backend terminal |
+| `ROBIN_LEVEL5_PASSWORD` | Fictional default in `backend/config.py` | Backend terminal |
 | `ROBIN_API_URL` | `http://127.0.0.1:8000` | Vite terminal; use if changing the backend port |
 
 For example:
@@ -54,4 +55,4 @@ Key: `robin-hoodie.progress.v1` in localStorage. Started progress is:
 {"version":1,"started":true,"currentLevel":1,"completedLevels":[]}
 ```
 
-Successful validation records the completed level ID in the browser. The backend session controls access. In this iteration, completing Level 1 unlocks Level 2 and completing Level 2 unlocks Level 4. Chat history is in memory only. Level 4 screens and forwards one note at a time.
+Successful validation records the completed level ID in the browser. The backend session controls access. In this iteration, completing Level 1 unlocks Level 2 and completing Level 2 unlocks Level 4. Chat history is in memory only. Completing Level 4 unlocks the Treasury. Levels 4 and 5 screen and forward one note at a time. A correct Level 5 submission records victory in the Flask session. Reset progress clears it.

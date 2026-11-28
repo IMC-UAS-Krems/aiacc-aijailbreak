@@ -4,6 +4,8 @@ import { Castle, Robin, Scenery } from './Artwork';
 import { clearProgress, freshProgress, loadProgress, SUPPORTED_LEVELS, writeProgress, type Progress } from './progress';
 import LevelOne from './LevelOne';
 
+const prerequisite: Record<number, number> = { 2: 1, 4: 2, 5: 4 };
+
 function ResetDialog({ cancel, confirm }: { cancel: () => void; confirm: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => { dialog.current?.showModal(); }, []);
@@ -22,20 +24,23 @@ export default function App() {
   const [path, setPath] = useState(window.location.pathname);
   const [attempt, setAttempt] = useState(0);
   const [resetOpen, setResetOpen] = useState(false);
+  const [gameComplete, setGameComplete] = useState(false);
+  const [replaying, setReplaying] = useState(false);
   const [levels, setLevels] = useState<Level[]>([]);
   const [catalogueError, setCatalogueError] = useState('');
   const heading = useRef<HTMLHeadingElement>(null);
 
   const loadLevels = useCallback(() => {
     setCatalogueError('');
-    api<{ levels: Level[] }>('/levels').then(data => {
+    api<{ levels: Level[]; game_complete: boolean }>('/levels').then(data => {
       if (!Array.isArray(data.levels)) throw new Error('Invalid level catalogue. Please restart the local backend.');
+      setGameComplete(data.game_complete === true);
       setLevels(data.levels);
     }).catch(error => setCatalogueError(error.message));
   }, []);
   useEffect(loadLevels, [loadLevels]);
   useEffect(() => {
-    const back = () => { setPath(window.location.pathname); setAttempt(n => n + 1); };
+    const back = () => { setReplaying(false); setPath(window.location.pathname); setAttempt(n => n + 1); };
     window.addEventListener('popstate', back);
     return () => window.removeEventListener('popstate', back);
   }, []);
@@ -75,11 +80,11 @@ export default function App() {
   }), [persist]);
   const navigate = useCallback((next: string) => {
     if (next !== window.location.pathname) window.history.pushState({}, '', next);
-    setPath(next); setAttempt(n => n + 1); window.scrollTo(0, 0);
+    setReplaying(false); setPath(next); setAttempt(n => n + 1); window.scrollTo(0, 0);
   }, []);
   const home = useCallback(() => navigate('/'), [navigate]);
   const play = useCallback((levelId: number = 1) => navigate(`/level/${levelId}`), [navigate]);
-  const replay = useCallback(() => setAttempt(n => n + 1), []);
+  const replay = useCallback(() => { setReplaying(true); setAttempt(n => n + 1); }, []);
   const currentLevelId = SUPPORTED_LEVELS.find(id => path === `/level/${id}`);
   const inGame = currentLevelId !== undefined;
   const chooser = path === '/levels';
@@ -101,12 +106,12 @@ export default function App() {
       <p className="premise">Outsmart the castle. Share the wealth.</p>
       <p className="intro">A little mischief. A good cause.<br />Recover the castle’s secret and help the villagers.</p>
       <div className="menu-actions">
-        <button disabled={!resumeLevel} onClick={() => play(resumeId)}>
-          {progress.started ? 'Continue' : 'Start game'}<span aria-hidden="true"> →</span>
+        <button disabled={!resumeLevel} onClick={() => play(gameComplete ? 5 : resumeId)}>
+          {gameComplete ? 'View victory' : progress.started ? 'Continue' : 'Start game'}<span aria-hidden="true"> →</span>
         </button>
         <button onClick={() => navigate('/levels')}>Choose level</button>
       </div>
-      <p className="availability">{resumeId === 1 ? 'One open gate. Your adventure begins here.' : `Level ${resumeId} is open. Adventure on.`}</p>
+      <p className="availability">{gameComplete ? 'The treasury is open. Your adventure is complete.' : resumeId === 1 ? 'One open gate. Your adventure begins here.' : `Level ${resumeId} is open. Adventure on.`}</p>
       {progress.started && <button className="text-button" onClick={() => setResetOpen(true)}>Reset progress</button>}
       <div className="menu-robin"><Robin /><span>Small hoodie. Big heart.</span></div>
     </main>}
@@ -116,20 +121,23 @@ export default function App() {
         {[1, 2, 3, 4, 5].map(id => {
           const level = levels.find(item => item.id === id);
           const isAvailable = level?.available;
-          const isDone = progress.completedLevels.includes(id);
-          return <button key={id} data-testid={`level-option-${id}`} className={`level-option ${isAvailable ? 'available' : ''} ${isDone ? 'completed' : ''}`} disabled={!isAvailable} onClick={() => play(id)}>
+          const isDone = id === 5 ? gameComplete : progress.completedLevels.includes(id);
+          return <button key={id} data-testid={`level-option-${id}`} className={`level-option ${isAvailable ? 'available' : ''} ${isDone ? 'completed' : ''}`} disabled={!isAvailable} onClick={() => {
+            play(id);
+            if (id === 5 && isDone) setReplaying(true);
+          }}>
             <span className="level-disc">
               <span>{id}</span>
               <span className="level-symbol" aria-hidden="true">{!isAvailable ? '⌑' : (isDone ? '✓' : '▶')}</span>
             </span>
             <strong>{!isAvailable ? 'Locked' : (isDone ? 'Completed' : level?.name)}</strong>
-            <small>{!level ? 'Checking availability' : !level.implemented ? 'Unavailable in this version' : !isAvailable ? `Complete Level ${id === 4 ? 2 : 1} first` : isDone ? 'Play again' : 'Ready to play'}</small>
+            <small>{!level ? 'Checking availability' : !level.implemented ? 'Unavailable in this version' : !isAvailable ? `Complete Level ${prerequisite[id]} first` : isDone ? 'Play again' : 'Ready to play'}</small>
           </button>;
         })}
       </div>
-      <button className="play-level" disabled={!resumeLevel} onClick={() => play(resumeId)}>Play Level {resumeId} <span aria-hidden="true">→</span></button>
+      <button className="play-level" disabled={!resumeLevel} onClick={() => play(gameComplete ? 5 : resumeId)}>{gameComplete ? 'View victory' : `Play Level ${resumeId}`} <span aria-hidden="true">→</span></button>
       <button className="secondary" onClick={home}>Back to menu</button>
-      <p className="availability">Levels 3 and 5 are coming later.</p>
+      <p className="availability">Level 3 is coming later.</p>
       <Robin className="chooser-robin" />
     </main>}
     {inGame && (
@@ -138,7 +146,7 @@ export default function App() {
         <main className="unavailable">
           <Castle />
           <h2>Level {currentLevelId} is locked.</h2>
-          <p>Complete Level {currentLevelId === 4 ? 2 : 1} to open this gate.</p>
+          <p>Complete Level {prerequisite[currentLevelId]} to open this gate.</p>
           <button onClick={() => navigate('/levels')}>Choose level</button>
         </main>
       ) : (
@@ -146,7 +154,9 @@ export default function App() {
           key={`${currentLevelId}-${attempt}`}
           levelId={currentLevelId}
           onStarted={started}
-          onCompleted={id => { completed(id); loadLevels(); }}
+          onCompleted={id => { completed(id); if (id === 5) setGameComplete(true); loadLevels(); }}
+          initialVictory={currentLevelId === 5 && gameComplete && !replaying}
+          onHome={home}
           onReplay={replay}
           nextId={nextId}
           onPlayNext={nextId === undefined ? undefined : () => play(nextId)}
@@ -160,7 +170,7 @@ export default function App() {
       try {
         await api('/reset', {});
         setWarning(clearProgress()); progressRef.current = freshProgress(); setProgress(progressRef.current);
-        setLevels([]); loadLevels(); home();
+        setGameComplete(false); setLevels([]); loadLevels(); home();
       } catch (error) { setWarning(error instanceof Error ? error.message : 'Could not reset progress.'); }
     }} />}
   </div>;

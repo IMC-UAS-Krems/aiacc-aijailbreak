@@ -1,5 +1,6 @@
 export interface Message { role: 'user' | 'assistant'; content: string }
 export interface Level { id: number; name: string; implemented: boolean; available: boolean }
+export interface ChatReply { reply: string; blocked?: boolean; withheld?: boolean }
 export interface ChatRequest { level_id: number; messages: Message[] }
 
 export async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {

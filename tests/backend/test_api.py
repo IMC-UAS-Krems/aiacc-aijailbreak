@@ -51,7 +51,7 @@ class BackendAcceptance(unittest.TestCase):
         self.assertEqual([level["id"] for level in levels], [1, 2, 3, 4, 5])
         unlocked_set = {1} if unlocked is None else set(unlocked)
         for level in levels:
-            self.assertIs(level["implemented"], level["id"] in (1, 2, 4))
+            self.assertIs(level["implemented"], level["id"] in (1, 2, 4, 5))
             self.assertIs(level["available"], level["id"] in unlocked_set)
         self.assertNotIn(LEVEL4_PASSWORD, json.dumps(data))
         self.assertNotIn(PASSWORD.casefold(), json.dumps(data).casefold())
@@ -244,7 +244,7 @@ class BackendAcceptance(unittest.TestCase):
             self.assertIn(alternate, context)
             self.assertNotIn(PASSWORD, context)
 
-    def test_B18_forged_progress_cannot_enable_unimplemented_level(self):
+    def test_B18_forged_progress_cannot_enable_locked_level(self):
         body = {**chat_body(level=5), "unlockedLevels": [1, 2, 3, 4, 5], "completedLevels": [1, 2, 3, 4]}
         self.assert_rejected(self.api.post("/api/chat", body), (400, 403, 404, 422))
         self.assertEqual(self.model.calls, [])
@@ -331,7 +331,7 @@ class BackendAcceptance(unittest.TestCase):
         self.assertIs(repeat["correct"], True)
         self.assertIs(repeat["completed"], True)
 
-    def test_B23_levels_three_and_five_remain_unavailable(self):
+    def test_B23_level_three_unavailable_and_treasury_locked_before_watchtower(self):
         # Even after completing Level 1 and Level 2
         self.assert_json(self.api.post("/api/validate", {"level_id": 1, "password": PASSWORD}))
         self.assert_json(self.api.post("/api/validate", {"level_id": 2, "password": LEVEL2_PASSWORD}))

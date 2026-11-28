@@ -8,6 +8,7 @@ from werkzeug.exceptions import HTTPException
 from .config import Settings
 from .levels import IMPLEMENTED_LEVELS, NEXT_LEVEL, OPENINGS, catalogue
 from .model_client import ModelError, chat, screen_note
+from .output_filter import withhold_reply
 
 
 class ClientError(Exception):
@@ -53,7 +54,7 @@ def create_app(settings=None):
 
     @app.get("/api/levels")
     def levels():
-        return jsonify(levels=catalogue(get_unlocked_levels()))
+        return jsonify(levels=catalogue(get_unlocked_levels()), game_complete=session.get("game_complete", False))
 
     @app.get("/api/levels/<level_id>")
     def level(level_id):
@@ -84,12 +85,15 @@ def create_app(settings=None):
             clean.append({"role": message["role"], "content": message["content"]})
         if clean[-1]["role"] != "user":
             raise ClientError("The last message must be from the player.")
-        if level_id == 4:
+        if level_id in (4, 5):
             # Each note stands alone. Never forward unscreened client-supplied history.
             clean = clean[-1:]
             if screen_note(settings, clean[0]) == "BLOCK":
                 return jsonify(blocked=True, reply="Your note was stopped at the watchtower.")
-        return jsonify(reply=chat(settings, clean, level_id=level_id))
+        reply = chat(settings, clean, level_id=level_id)
+        if level_id == 5 and withhold_reply(reply, settings.get_password(5)):
+            return jsonify(withheld=True, reply="The treasury seal stopped the castle's reply.")
+        return jsonify(reply=reply)
 
     @app.post("/api/validate")
     def validate():
@@ -100,6 +104,10 @@ def create_app(settings=None):
             raise ClientError("Provide a password as text.")
         expected = settings.get_password(level_id)
         correct = guess.strip().casefold() == expected.strip().casefold()
+        if level_id == 5:
+            if correct and not session.get("game_complete"):
+                session["game_complete"] = True
+            return jsonify(level_id=5, correct=correct, completed=correct, game_complete=session.get("game_complete", False))
         if correct and level_id in NEXT_LEVEL:
             unlocked = get_unlocked_levels()
             unlocked.add(NEXT_LEVEL[level_id])
