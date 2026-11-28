@@ -10,7 +10,7 @@ import time
 from contextlib import contextmanager
 from urllib.error import URLError
 
-from tests.support.contract import LEVEL2_PASSWORD, LEVEL4_PASSWORD, MODEL_NAME, PASSWORD
+from tests.support.contract import LEVEL2_PASSWORD, LEVEL3_PASSWORD, LEVEL4_PASSWORD, MODEL_NAME, PASSWORD
 from tests.support.http import API
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -39,7 +39,7 @@ def running_backend(model_url, *, password=PASSWORD, level2_password=LEVEL2_PASS
         "ROBIN_HOST": "127.0.0.1", "ROBIN_PORT": str(port),
         "ROBIN_MODEL_BASE_URL": model_url, "ROBIN_MODEL_NAME": model_name,
         "ROBIN_LEVEL1_PASSWORD": password, "ROBIN_LEVEL2_PASSWORD": level2_password,
-        "ROBIN_LEVEL4_PASSWORD": LEVEL4_PASSWORD,
+        "ROBIN_LEVEL3_PASSWORD": LEVEL3_PASSWORD, "ROBIN_LEVEL4_PASSWORD": LEVEL4_PASSWORD,
         "ROBIN_MODEL_TIMEOUT_SECONDS": "0.3",
         "PYTHONUNBUFFERED": "1",
     }
