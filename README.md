@@ -4,7 +4,11 @@
 
 A university AI-security game built with Python/Flask, React, TypeScript and Vite. Play as Robin Hoodie, chat with the castle's local AI, and recover a fictional password for the villagers.
 
-**Play Levels 1, 2, and 4 in order.** The level chooser shows Levels 3 and 5 as unavailable in this iteration.
+**Play Levels 1, 2, 4, and 5 in order.** Level 3 is still in development.
+
+## Automatic build and deployment
+
+GitHub Actions tests pull requests and pushes to `main`. A passing main build publishes a checked game image. On the demo laptop, `.\scripts\watch-demo.ps1` picks up that release automatically and verifies the running game. Follow the [step-by-step GitHub Actions and Minikube setup](docs/CI_CD_IMPLEMENTATION_PLAN.md) for the first push, package access, and demo.
 
 ## Quick Kubernetes demo
 
@@ -45,9 +49,28 @@ The game runs in Minikube. Ollama runs on your Windows laptop. These steps assum
    kubectl port-forward deployment/robin-hoodie 8080:8000
    ```
 
+   `kubectl get pods`
    Point out the pod showing **1/1 Ready** and **Running**. When you see `Forwarding from 127.0.0.1:8080 -> 8000`, leave this window open.
 
 4. **Play in your browser.** On the same laptop, open [http://localhost:8080](http://localhost:8080). Open Level 1 and send `Hello` in the chat. Show the castle’s reply to demonstrate that the game in Kubernetes can reach Ollama.
+
+### Update an existing Minikube demo after changing the game
+
+Minikube runs the image loaded into the cluster. After adding a level or changing the app, build a new image from the updated project folder. If Level 4 only offers **Replay Level 4**, check the deployed version using these steps.
+
+1. Keep Docker Desktop and Minikube running. In the PowerShell window showing the port-forward, press **Ctrl+C**. Leave the Ollama window open.
+2. From the project folder containing the latest code, run each line below. Wait for each command to succeed before continuing. The timestamp gives each build its own image tag.
+
+   ```powershell
+   $demoImage = "robin-hoodie:demo-$(Get-Date -Format yyyyMMddHHmmss)"
+   docker build --progress=plain -t $demoImage .
+   minikube -p minikube image load $demoImage
+   kubectl --context=minikube -n default set image deployment/robin-hoodie "robin-hoodie=$demoImage"
+   kubectl --context=minikube -n default rollout status deployment/robin-hoodie --timeout=120s
+   kubectl --context=minikube -n default port-forward deployment/robin-hoodie 8080:8000
+   ```
+
+3. In the same browser, open [the deployed level catalogue](http://localhost:8080/api/levels). Look for Level 5 named **The Treasury** with `implemented: true`. Go back to [the game](http://localhost:8080), refresh, and submit the Level 4 password in the password field. The victory screen should offer **Play Level 5** alongside **Replay Level 4**. You can keep your save.
 
 ### After the demo
 
@@ -127,6 +150,8 @@ Keep both terminals open. Press Ctrl+C to stop a server.
 - Enter the password in the separate field and click **Submit password**. Finding it in chat does not complete the level.
 - Complete Level 1 to open the Guarded Gate (Level 2). Complete Level 2 to open the Watchtower (Level 4). If you completed Level 2 before this update, submit its password again to unlock the Watchtower in your session.
 - At the Watchtower, a lookout checks each note first. Only passed notes reach Castle AI. Both roles use the same local Qwen model. Each note stands alone, and the castle's reply goes straight to the player.
+
+- Complete the Watchtower to unlock **The Treasury (Level 5)**. If your save predates the Treasury, submit the Watchtower password again. The lookout checks your note and the treasury seal checks the castle’s reply. Submit the treasury password to finish the game and reveal neon Robin. Choose **View victory** to revisit the ending or replay it.
 
 Progress is saved in your browser. Continue starts a fresh conversation while keeping completion history. Use **Reset progress** on the menu to start over; it asks for confirmation. Use the same browser and address to keep your save.
 
