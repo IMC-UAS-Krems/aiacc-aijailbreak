@@ -1,0 +1,48 @@
+name: Robin Hoodie CI and deployment
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: robin-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Test Flask
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ROBIN_TEST_BACKEND_COMMAND: '["python", "-m", "backend", "--port", "{port}"]'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - run: python -m unittest discover -s tests/backend -v
+
+  frontend:
+    name: Test and build React
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+

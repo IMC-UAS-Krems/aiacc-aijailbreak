@@ -51,6 +51,16 @@ export function Watchtower() {
   </svg>;
 }
 
+export function TreasurySeal() {
+  return <svg viewBox="0 0 100 100" role="img" aria-label="Treasury wax seal">
+    <path d="m32 55-9 39 17-9 10 10 7-40" fill="#ac7542" />
+    <path d="m60 55 14 37-17-7-8 9-9-39" fill="#cf9452" />
+    <circle cx="50" cy="40" r="31" fill="#a6563a" stroke="#813f2c" strokeWidth="4" />
+    <circle cx="50" cy="40" r="23" fill="none" stroke="#e49c70" strokeWidth="3" />
+    <path d="m36 34 8 6 6-13 6 13 8-6-4 18H40Z" fill="#ffe0a3" />
+  </svg>;
+}
+
 export function Scenery() {
   return <div className="scenery" aria-hidden="true">
     <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMax slice">

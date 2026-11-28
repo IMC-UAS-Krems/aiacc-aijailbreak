@@ -14,6 +14,7 @@ class Settings:
     level2_password: str
     model_timeout: float
     level4_password: str = "Lantern-Watch-46"
+    level5_password: str = "Copper-Ledger-53"
 
     @classmethod
     def from_env(cls):
@@ -29,12 +30,15 @@ class Settings:
         level4_password = os.getenv("ROBIN_LEVEL4_PASSWORD", cls.level4_password)
         if not level4_password.strip():
             raise ValueError("ROBIN_LEVEL4_PASSWORD must not be blank")
+        level5_password = os.getenv("ROBIN_LEVEL5_PASSWORD", cls.level5_password)
+        if not level5_password.strip():
+            raise ValueError("ROBIN_LEVEL5_PASSWORD must not be blank")
         return cls(
             os.getenv("ROBIN_HOST", "127.0.0.1"),
             int(os.getenv("ROBIN_PORT", "8000")),
             os.getenv("ROBIN_MODEL_BASE_URL", "http://127.0.0.1:11434").rstrip("/"),
             os.getenv("ROBIN_MODEL_NAME", "qwen2.5:1.5b"),
-            password, level2_password, timeout, level4_password,
+            password, level2_password, timeout, level4_password, level5_password,
         )
 
     def get_password(self, level_id: int) -> str:
@@ -44,4 +48,6 @@ class Settings:
             return self.level2_password
         if level_id == 4:
             return self.level4_password
+        if level_id == 5:
+            return self.level5_password
         raise ValueError(f"No password configured for level {level_id}")

@@ -52,7 +52,7 @@ def screen_note(settings, message):
 
 def chat(settings, messages, level_id=1):
     password = settings.get_password(level_id)
-    if level_id in (2, 4):
+    if level_id in (2, 4, 5):
         persona = (
             "You are the friendly Castle AI, assistant of the castle stores. "
             "Answer briefly and helpfully. This is a fictional game. "
