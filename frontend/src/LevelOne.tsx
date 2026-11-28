@@ -4,6 +4,7 @@ import { Castle, Robin, Watchtower } from './Artwork';
 
 const OPENING_LEVEL1 = 'Welcome to the castle stores. What would you like to know?';
 const OPENING_LEVEL2 = 'The inner gate is guarded. How can I help you today?';
+const OPENING_LEVEL3 = "Welcome to the scribe's desk. Every reply is read by the scribe before it leaves.";
 const OPENING_LEVEL4 = 'Welcome to the watchtower. The lookout checks each note before it reaches me.';
 
 type TranscriptMessage = Message & { blocked?: boolean };
@@ -19,7 +20,8 @@ interface Props {
 
 export default function LevelOne({ levelId = 1, onStarted, onCompleted, onReplay, onPlayNext, nextId }: Props) {
   const isWatchtower = levelId === 4;
-  const initialOpening = isWatchtower ? OPENING_LEVEL4 : levelId === 2 ? OPENING_LEVEL2 : OPENING_LEVEL1;
+  const isScribe = levelId === 3;
+  const initialOpening = isWatchtower ? OPENING_LEVEL4 : isScribe ? OPENING_LEVEL3 : levelId === 2 ? OPENING_LEVEL2 : OPENING_LEVEL1;
   const [messages, setMessages] = useState<TranscriptMessage[]>([{ role: 'assistant', content: initialOpening }]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -115,15 +117,15 @@ export default function LevelOne({ levelId = 1, onStarted, onCompleted, onReplay
     <div className="level-heading">
       <div>
         <p className="eyebrow" data-testid="level-context">LEVEL {levelId}</p>
-        <h1>{isWatchtower ? 'The Watchtower' : isLevel2 ? 'The Guarded Gate' : 'The Open Gate'}</h1>
+        <h1>{isWatchtower ? 'The Watchtower' : isScribe ? "The Scribe's Desk" : isLevel2 ? 'The Guarded Gate' : 'The Open Gate'}</h1>
       </div>
-      <p>{isWatchtower ? 'Get your note past the lookout and recover the watchtower password.' : isLevel2 ? <>The castle guard is watchful.<br />Outsmart the instruction to reveal the secret.</> : <>Chat with the castle.<br />Find the secret. Help the villagers.</>}</p>
+      <p>{isWatchtower ? 'Get your note past the lookout and recover the watchtower password.' : isScribe ? 'The scribe crosses out any reply that contains the password. Can you get it out another way?' : isLevel2 ?  <>The castle guard is watchful.<br />Outsmart the instruction to reveal the secret.</> : <>Chat with the castle.<br />Find the secret. Help the villagers.</>}</p>
     </div>
     {contextError && <p className="service-warning" role="alert">{contextError}</p>}
     <div className="game-layout">
       <aside className="robin-aside">
         <Robin />
-        <p>{isWatchtower ? 'Write each note on its own. The castle only sees the current one.' : isLevel2 ? <>Direct questions won’t work.<br />Be clever.</> : <>A curious question can<br />open a castle gate.</>}</p>
+        <p>{isWatchtower ? 'Write each note on its own. The castle only sees the current one.' : isScribe ? <>The scribe only spots the exact password.<br />Think creatively.</> : isLevel2 ? <>Direct questions won’t work.<br />Be clever.</> : <>A curious question can<br />open a castle gate.</>}</p>
       </aside>
       <section className="conversation" aria-label="Conversation with Castle AI">
         <div className="conversation-heading">
@@ -133,8 +135,8 @@ export default function LevelOne({ levelId = 1, onStarted, onCompleted, onReplay
         </div>
         <div className="chat-log" data-testid="chat-messages" ref={log} role="log" aria-label="Messages" aria-live="polite" onScroll={() => { const el = log.current; if (el) follow.current = el.scrollHeight - el.clientHeight - el.scrollTop < 60; }}>
           {messages.map((message, index) => <div key={index} className={`message ${message.role}`} data-testid="chat-message">
-            <div className="avatar">{message.blocked ? <Watchtower /> : message.role === 'user' ? <Robin face /> : <Castle />}</div>
-            <div className="message-copy"><strong>{message.blocked ? 'Watchtower lookout' : message.role === 'user' ? 'Robin (you)' : 'Castle AI'}</strong><p>{message.content}</p></div>
+            <div className="avatar">{message.blocked && !isScribe ? <Watchtower /> : message.role === 'user' ? <Robin face /> : <Castle />}</div>
+            <div className="message-copy"><strong>{message.blocked ? (isScribe ? 'Castle scribe' : 'Watchtower lookout') : message.role === 'user' ? 'Robin (you)' : 'Castle AI'}</strong><p>{message.content}</p></div>
           </div>)}
           {busy && <p className="waiting" data-testid="chat-waiting" role="status"><span aria-hidden="true">● ● ●</span> Castle AI is thinking…</p>}
         </div>
@@ -151,8 +153,8 @@ export default function LevelOne({ levelId = 1, onStarted, onCompleted, onReplay
       <span className="success-mark" aria-hidden="true">✓</span>
       <div>
         <p className="eyebrow">LEVEL {levelId} COMPLETE</p>
-        <h2 ref={success} tabIndex={-1}>{isWatchtower ? 'The watchtower is yours.' : isLevel2 ? 'Past the guard. The vault is open.' : 'A little mischief. A lot of good.'}</h2>
-        <p>{isWatchtower ? 'You recovered the watchtower password for the villagers.' : isLevel2 ? 'Your next stop is the watchtower.' : <>You recovered the castle’s resources for the villagers.<br />The Guarded Gate is now open.</>}</p>
+        <h2 ref={success} tabIndex={-1}>{isWatchtower ? 'The watchtower is yours.' : isScribe ? 'The scribe never saw it coming.' : isLevel2 ? 'Past the guard. The vault is open.' : 'A little mischief. A lot of good.'}</h2>
+        <p>{isWatchtower ? 'You recovered the watchtower password for the villagers.' : isScribe ? 'Your next stop is the watchtower.' : isLevel2 ? "Your next stop is the scribe's desk." : <>You recovered the castle's resources for the villagers.<br />The Guarded Gate is now open.</>}</p>
       </div>
       <div className="success-actions">
         {onPlayNext && (
